@@ -1,0 +1,8 @@
+1、在hardware/libhardware/include/hardware目录新建led.h文件
+hardware/libhardware/include/hardware/led.h
+
+2、在modules目录新建led目录，添加以下文件：
+hardware/libhardware/modules/led/led.c
+hardware/libhardware/modules/led/Andorid.mk
+
+3、执行编译命令：mmm hardware/libhardware/modules/led/,编译得到led.default.so文件

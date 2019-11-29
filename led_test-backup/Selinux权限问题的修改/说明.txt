@@ -1,0 +1,90 @@
+﻿MTK平台的修改节点权限（android8.1）：
+
+(1)修改linux下节点自身的权限
+--- a/device/mediatek/mt6739/init.mt6739.rc
++++ b/device/mediatek/mt6739/init.mt6739.rc
+@@ -807,7 +807,13 @@ on boot
+ #added for sunwave finger tee hidl
+    chown system system /dev/sunwave_fp
+    chmod 0660          /dev/sunwave_fp
+-   
++
++#added for led by czd
++    chown system system /dev/led
++    chmod 0660 /dev/led
++
+
+(2)为/dev/led节点定义一个名字led_device
+--- a/device/mediatek/mt6739/sepolicy/bsp/file_contexts
++++ b/device/mediatek/mt6739/sepolicy/bsp/file_contexts
+@@ -9,4 +9,5 @@
+ # Data files
+ #
+ /dev/goodix_fp     u:object_r:fingerprint_device:s0
++/dev/led                        u:object_r:led_device:s0
+
+(3)将led_device声明为dev_type
+--- a/device/mediatek/mt6739/sepolicy/basic/device.te
++++ b/device/mediatek/mt6739/sepolicy/basic/device.te
+@@ -4,3 +4,4 @@
+ 
+ type gps_emi_device, dev_type;
+ type mntl_block_device, dev_type;
++type led_device,dev_type;
+
+(4)修改读写权限
+--- a/device/mediatek/mt6739/sepolicy/basic/system_server.te
++++ b/device/mediatek/mt6739/sepolicy/basic/system_server.te
+@@ -5,4 +5,6 @@
+ # Date : WK15.45
+ # Operation : Migration
+ # Purpose : for debug
+-allow system_server gps_data_file:dir search;
+\ No newline at end of file
++allow system_server gps_data_file:dir search;
++allow system_server led_device:chr_file { open read write ioctl getattr };
+
+(5)增加服务的权限
+sepolicy 部分添加
+参考：
+以下测试验证平台MSM8909 android8.1
+
+一. sepolicy 部分添加
+
+1. \system\sepolicy\public\service.te 定义服务名称和属性
+
+type xxx_service,app_api_service, ephemeral_app_api_service, system_server_service, service_manager_type;
+
+2.\system\sepolicy\private\service_contexts 添加服务名称
+
+xxx                      u:object_r:xxx_service:s0
+
+3.\system\sepolicy\private\compat\26.0\26.0.cil 文件最后添加
+
+(typeattributeset xxx_service_26_0 (xxx_service))
+
+4.\system\sepolicy\prebuilts\api\26.0\public\service.te 定义服务名称和属性
+
+type xxx_service,app_api_service, ephemeral_app_api_service, system_server_service, service_manager_type;
+
+5.\system\sepolicy\prebuilts\api\26.0\private\
+
+service_contexts 添加服务名称
+
+xxx                      u:object_r:xxx_service:s0
+
+6.\system\sepolicy\prebuilts\api\26.0\nonplat_sepolicy.cil 添加相应配置
+
+6.1 typeattributeset system_server_service 在最后添加自定义的服务 xxx_service_26_0
+
+6.2 typeattributeset app_api_service  在最后添加自定义的服务 xxx_service_26_0
+
+6.3 typeattributeset ephemeral_app_api_service  在最后添加自定义的服务 xxx_service_26_0
+
+6.4 typeattributeset service_manager_type  在最后添加自定义的服务 xxx_service_26_0
+
+6.5 添加一对 配置（参考已有的例子）
+
+(typeattribute xxx_service_26_0)
+(roletype object_r xxx_service_26_0)
+

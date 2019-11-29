@@ -1,0 +1,16 @@
+1、把驱动文件led_test放到kernel-4.4/drivers目录,
+
+2、修改kernel-4.4/drivers目录的Makefile文件，添加obj-y  += led_test/ 使驱动参与编译进内核。
+
+3、dts添加gpio设备节点信息：
+
+led_node{
+
+		
+	compatible = "led_node";
+		
+	gpio_num = <&pio 9 0>;
+		
+	status = "okay";
+	
+};

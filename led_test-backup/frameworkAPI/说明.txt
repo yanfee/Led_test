@@ -1,0 +1,103 @@
+1、jni在注册方法时用到com/android/server/led/LedService
+所以在frameworks/base/services/core/java/com/android/server/目录下新建led文件夹，添加LedService.java文件
+
+2、在Android系统中，硬件服务一般是运行在一个独立的进程中为各种应用程序提供服务。
+因此，调用这些硬件服务的应用程序与这些硬件服务之间的通信需要通过代理来进行创建aidl文件来描述通信接口
+在frameworks/base/core/java/android/os/目录新建ILedService.aidl文件
+
+3、然后修改frameworks/base/services/core/jni/Android.mk文件，在LOCAL_SRC_FILES += \ 增加
++       $(LOCAL_REL_DIR)/com_android_server_led_LedService.cpp \
+
+4、在frameworks/base/Android.mk里增加对aidl的编译项
+LOCAL_SRC_FILES += \
++core/java/android/os/ILedService.aidl \
+
+5、编译后会在out目录下产生ILedService.java文件
+out/target/common/obj/JAVA_LIBRARIES/framework_intermediates/src/core/java/android/os/ILedService.java
+
+6、Manager管理service,在注册服务的时候就实例化一个Manager,App获取服务getService也就获取了这个对象
+添加frameworks/base/core/java/android/os/LedManager.java文件
+
+7、
+添加注册服务,addService开机服务就可以启动
+
+通过service list 命令查看服务是否启动
+
+# service list | grep led???????????????????????????????????????? ?
+35?? ?led: [android.os.ILedService]
+
+具体文件修改如下：
+--- a/frameworks/base/services/java/com/android/server/SystemServer.java
++++ b/frameworks/base/services/java/com/android/server/SystemServer.java
+@@ -103,6 +103,7 @@ import com.android.server.usage.UsageStatsService;
+ import com.android.server.vr.VrManagerService;
+ import com.android.server.webkit.WebViewUpdateService;
+ import com.android.server.wm.WindowManagerService;
++import com.android.server.led.LedService;
+ 
+ import dalvik.system.VMRuntime;
+ 
+@@ -516,6 +517,7 @@ public final class SystemServer {
+      */
+     private void startOtherServices() {
+         final Context context = mSystemContext;
++               LedService led = null;
+         VibratorService vibrator = null;
+         IMountService mountService = null;
+         NetworkManagementService networkManagement = null;
+@@ -987,6 +989,15 @@ public final class SystemServer {
+                     }
+                     Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
+                 }
++                               
++                               try{
++                                       Slog.i(TAG,"Led Service");
++                                       led = new LedService(context);
++                                       ServiceManager.addService(Context.LED_SERVICE, led);
++                                       Slog.i(TAG,"Led Service-----");
++                               }catch(Throwable e){
++                                       Slog.e(TAG,"Failure starting LedService", e);
++                               }
+ 
+--- a/frameworks/base/core/java/android/content/Context.java
++++ b/frameworks/base/core/java/android/content/Context.java
+@@ -3431,6 +3431,15 @@ public abstract class Context {
+     public static final String SERIAL_SERVICE = "serial";
+ 
+     /**
++     * Use with {@link #getSystemService} to retrieve a {@link
++     * android.os.LedManager} for access to led ports.
++     *
++     * @see #getSystemService
++     *
++     * @hide
++     */
++    public static final String LED_SERVICE = "led";
+ 
+注册服务
+--- a/frameworks/base/core/java/android/app/SystemServiceRegistry.java
++++ b/frameworks/base/core/java/android/app/SystemServiceRegistry.java
+@@ -127,6 +127,8 @@ import android.view.accessibility.AccessibilityManager;
+ import android.view.accessibility.CaptioningManager;
+ import android.view.inputmethod.InputMethodManager;
+ import android.view.textservice.TextServicesManager;
++import android.os.LedManager;
++import android.os.ILedService;
+ 
+ import java.util.HashMap;
+ 
+@@ -480,6 +482,14 @@ final class SystemServiceRegistry {
+                 return new SerialManager(ctx, ISerialManager.Stub.asInterface(b));
+             }});
+ 
++        registerService(Context.LED_SERVICE, LedManager.class,
++                new CachedServiceFetcher<LedManager>() {
++            @Override
++            public LedManager createService(ContextImpl ctx) {
++                IBinder b = ServiceManager.getService(Context.LED_SERVICE);
++                return new LedManager(ctx, ILedService.Stub.asInterface(b));
++            }});
++
+
+8、更新API
+make update-api -j8
